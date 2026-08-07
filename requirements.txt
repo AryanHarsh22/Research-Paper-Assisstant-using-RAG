@@ -1,0 +1,8 @@
+pymupdf
+langchain-core
+langchain-text-splitters
+sentence-transformers
+faiss-cpu
+chromadb
+streamlit
+pytest

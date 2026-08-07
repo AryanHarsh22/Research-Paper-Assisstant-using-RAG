@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+env/
+venv/
+ENV/
+.conda/
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Local data & temporary uploads
+data/uploads/*
+data/vector_store/*
+!data/uploads/.gitkeep
+!data/vector_store/.gitkeep
+
+# IDEs & System files
+.vscode/
+.claude/
+.idea/
+.DS_Store
+Thumbs.db
