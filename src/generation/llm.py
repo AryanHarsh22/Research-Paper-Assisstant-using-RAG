@@ -189,7 +189,7 @@ class GeminiClient(LLMClient):
     """
     Client for Google Gemini REST API.
     """
-    def __init__(self, model_name: str = "gemini-1.5-flash", api_key: Optional[str] = None, temperature: float = 0.0):
+    def __init__(self, model_name: str = "gemini-2.5-flash", api_key: Optional[str] = None, temperature: float = 0.0):
         self.model_name = model_name
         if not api_key:
             try:

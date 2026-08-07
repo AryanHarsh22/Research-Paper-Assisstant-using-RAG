@@ -153,6 +153,23 @@ VECTOR_STORE_DIR = os.path.join("data", "vector_store")
 UPLOADS_DIR = os.path.join("data", "uploads")
 
 
+def get_configured_api_key(*names: str) -> str:
+    """Read a provider key server-side without ever rendering it in the UI."""
+    for name in names:
+        try:
+            value = st.secrets.get(name, "")
+            if value:
+                return str(value).strip()
+        except Exception:
+            pass
+
+        value = os.environ.get(name, "")
+        if value:
+            return value.strip()
+
+    return ""
+
+
 def init_session_state():
     """Initialize Streamlit session state variables."""
     if "vector_store" not in st.session_state:
@@ -348,15 +365,10 @@ def main():
         # LLM & Retrieval Configuration
         st.header("⚙️ Model & Retrieval Settings")
 
-        # Check for system default key (from st.secrets or os.environ)
-        system_openai_key = ""
-        try:
-            if "OPENAI_API_KEY" in st.secrets and st.secrets["OPENAI_API_KEY"]:
-                system_openai_key = st.secrets["OPENAI_API_KEY"]
-        except Exception:
-            pass
-        if not system_openai_key:
-            system_openai_key = os.environ.get("OPENAI_API_KEY", "")
+        # Read hosted secrets server-side. Never use these values as widget defaults.
+        system_openai_key = get_configured_api_key("OPENAI_API_KEY")
+        system_groq_key = get_configured_api_key("GROQ_API_KEY")
+        system_gemini_key = get_configured_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY")
 
         # Default to OpenAI if host configured a system key (online mode), else Ollama (local mode)
         default_index = 1 if system_openai_key else 0
@@ -412,23 +424,43 @@ def main():
 
         elif "Groq" in llm_provider:
             provider_type = "groq"
-            model_name = st.text_input("Groq Model Name", value="llama-3.3-70b-versatile", help="e.g. llama-3.3-70b-versatile, llama3-8b-8192, mixtral-8x7b-32768")
-            provider_api_key = st.text_input(
-                "Groq API Key",
-                value=os.environ.get("GROQ_API_KEY", ""),
-                type="password",
-                help="Enter your Groq API key (gsk_...)"
-            )
+            model_name = st.text_input("Groq Model Name", value="llama-3.3-70b-versatile", help="e.g. llama-3.3-70b-versatile or llama-3.1-8b-instant")
+            if system_groq_key:
+                st.caption("✅ Groq API key configured securely")
+                custom_key = st.text_input(
+                    "Custom Groq API key (optional)",
+                    value="",
+                    type="password",
+                    help="Leave blank to use the server-side Streamlit secret."
+                )
+                provider_api_key = custom_key.strip() or system_groq_key
+            else:
+                provider_api_key = st.text_input(
+                    "Groq API key",
+                    value="",
+                    type="password",
+                    help="Enter a Groq API key for this session."
+                )
 
         elif "Gemini" in llm_provider:
             provider_type = "gemini"
-            model_name = st.text_input("Gemini Model Name", value="gemini-1.5-flash", help="e.g. gemini-1.5-flash, gemini-1.5-pro")
-            provider_api_key = st.text_input(
-                "Gemini API Key",
-                value=os.environ.get("GEMINI_API_KEY", os.environ.get("GOOGLE_API_KEY", "")),
-                type="password",
-                help="Enter your Google Gemini API key"
-            )
+            model_name = st.text_input("Gemini Model Name", value="gemini-2.5-flash", help="Use a model enabled for generateContent in your Gemini project.")
+            if system_gemini_key:
+                st.caption("✅ Gemini API key configured securely")
+                custom_key = st.text_input(
+                    "Custom Gemini API key (optional)",
+                    value="",
+                    type="password",
+                    help="Leave blank to use the server-side Streamlit secret."
+                )
+                provider_api_key = custom_key.strip() or system_gemini_key
+            else:
+                provider_api_key = st.text_input(
+                    "Gemini API key",
+                    value="",
+                    type="password",
+                    help="Enter a Gemini API key for this session."
+                )
 
         temperature = st.slider("Temperature", 0.0, 1.0, 0.0, step=0.1)
 
