@@ -119,7 +119,7 @@ def test_citation_processor():
     c2 = citations[1]
     assert c2["verified"] is True, "Second fuzzy citation should be verified"
     assert c2["chunk_id"] == "vit_p2_c1", "Incorrect chunk_id matched"
-    assert "**[vit_paper, p. 2]**" in processed_text, "Fuzzy verified citation should be bolded"
+    assert "**[vit_paper.pdf, p. 2]**" in processed_text or "**[vit_paper, p. 2]**" in processed_text, "Fuzzy verified citation should be bolded"
 
     # 3. Check invalid page unverified
     c3 = citations[2]

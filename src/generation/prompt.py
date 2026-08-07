@@ -33,15 +33,16 @@ class PromptBuilder:
             page = metadata.get("page", "?")
             text = chunk.get("text", "").strip()
             
-            # Format each chunk clearly for the LLM
-            context_str += f"[Context {i + 1}] (Source: {source}, Page: {page})\n{text}\n\n"
+            # Format each chunk with clear document source label
+            context_str += f"[Passage {i + 1}] Document: {source} | Page: {page}\n{text}\n\n"
 
         prompt = (
             "System Instructions:\n"
             "You are an expert research assistant. Answer the user's question strictly based "
             "on the provided context passages below. For every claim or statement you make, "
-            "you MUST cite the source document and page number in line using the format [Source_File.pdf, p. X]. "
+            "you MUST cite the exact source document filename and page number in line using the format [Document_Name.pdf, p. X]. "
             "For example: 'Attention mechanisms allow modeling dependencies [attention_is_all_you_need.pdf, p. 4].'\n"
+            "IMPORTANT: Always use the exact document filename (e.g. attention_is_all_you_need.pdf) in citations, NOT 'Passage 1' or 'Context 1'.\n"
             "Do not cite if the claim is not directly supported by that specific passage. "
             "If the answer cannot be found in the provided context, state: 'I could not find the answer in the provided documents.' "
             "Do NOT use external knowledge or make up claims.\n\n"

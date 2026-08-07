@@ -14,7 +14,7 @@ from src.ingestion.embedder import DocumentEmbedder
 from src.retrieval.vector_store import FAISSVectorStore
 from src.retrieval.retriever import Retriever
 from src.generation.prompt import PromptBuilder
-from src.generation.llm import get_llm_client
+from src.generation.llm import get_llm_client, list_ollama_models
 from src.generation.citations import CitationProcessor
 
 # -----------------------------------------------------------------------------
@@ -348,25 +348,66 @@ def main():
         # LLM & Retrieval Configuration
         st.header("⚙️ Model & Retrieval Settings")
 
+        # Check for system default key (from st.secrets or os.environ)
+        system_openai_key = ""
+        try:
+            if "OPENAI_API_KEY" in st.secrets and st.secrets["OPENAI_API_KEY"]:
+                system_openai_key = st.secrets["OPENAI_API_KEY"]
+        except Exception:
+            pass
+        if not system_openai_key:
+            system_openai_key = os.environ.get("OPENAI_API_KEY", "")
+
+        # Default to OpenAI if host configured a system key (online mode), else Ollama (local mode)
+        default_index = 1 if system_openai_key else 0
+
         llm_provider = st.radio(
             "LLM Provider",
-            options=["Ollama", "OpenAI"],
-            index=0,
-            horizontal=True
+            options=["Ollama (Local LLM/SLM)", "OpenAI (Cloud LLM)"],
+            index=default_index,
+            horizontal=True,
+            help="Choose Ollama for local models (Llama 3, Mistral, etc.) or OpenAI for cloud inference."
         )
 
-        if llm_provider == "Ollama":
-            model_name = st.text_input("Ollama Model Name", value="llama3", help="e.g., llama3, mistral, gemma:2b")
-            ollama_url = st.text_input("Ollama Base URL", value="http://localhost:11434")
+        if "Ollama" in llm_provider:
+            provider_type = "ollama"
+            ollama_url = st.text_input("Ollama Base URL", value="http://localhost:11434", help="Local Ollama server URL")
+            
+            # Detect installed Ollama models
+            detected_models = list_ollama_models(ollama_url)
+            if detected_models:
+                st.caption(f"🟢 **Ollama Connected**: {len(detected_models)} local model(s) available")
+                model_name = st.selectbox(
+                    "Select Ollama Model",
+                    options=detected_models,
+                    index=0,
+                    help="Select from models currently installed in your local Ollama instance."
+                )
+            else:
+                st.caption("⚠️ Could not detect installed models automatically. Enter model name manually:")
+                model_name = st.text_input("Ollama Model Name", value="mistral:latest", help="e.g., mistral:latest, llama3, gemma:2b")
+            
             openai_key = None
         else:
+            provider_type = "openai"
             model_name = st.text_input("OpenAI Model Name", value="gpt-4o-mini", help="e.g., gpt-4o-mini, gpt-4o")
-            openai_key = st.text_input(
-                "OpenAI API Key",
-                value=os.environ.get("OPENAI_API_KEY", ""),
-                type="password",
-                help="Leave empty if set in environment variable OPENAI_API_KEY."
-            )
+            
+            if system_openai_key:
+                st.caption("✅ **Default API Key Provided**: Online users don't need to enter a key!")
+                custom_key = st.text_input(
+                    "Custom OpenAI API Key (Optional)",
+                    value="",
+                    type="password",
+                    help="Leave blank to use the app's default system key, or enter your own key to override."
+                )
+                openai_key = custom_key.strip() if custom_key.strip() else system_openai_key
+            else:
+                openai_key = st.text_input(
+                    "OpenAI API Key",
+                    value="",
+                    type="password",
+                    help="Enter your OpenAI API key (sk-...). Leave blank if using Ollama locally."
+                )
             ollama_url = "http://localhost:11434"
 
         temperature = st.slider("Temperature", 0.0, 1.0, 0.0, step=0.1)
@@ -471,13 +512,13 @@ def main():
 
                         # 3. Instantiate LLM Client & Generate
                         kwargs = {}
-                        if llm_provider == "Ollama":
+                        if provider_type == "ollama":
                             kwargs["base_url"] = ollama_url
                         else:
                             kwargs["api_key"] = openai_key
 
                         llm_client = get_llm_client(
-                            provider=llm_provider,
+                            provider=provider_type,
                             model_name=model_name,
                             temperature=temperature,
                             **kwargs
