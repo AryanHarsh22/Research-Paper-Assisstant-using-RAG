@@ -115,7 +115,9 @@ class OpenAIClient(LLMClient):
         data = json.dumps(payload).encode('utf-8')
         headers = {
             'Content-Type': 'application/json',
-            'Authorization': f'Bearer {self.api_key}'
+            'Accept': 'application/json',
+            'Authorization': f'Bearer {self.api_key}',
+            'User-Agent': 'research-paper-assistant/1.0'
         }
         req = urllib.request.Request(url, data=data, headers=headers)
         
@@ -166,7 +168,9 @@ class GroqClient(LLMClient):
         data = json.dumps(payload).encode('utf-8')
         headers = {
             'Content-Type': 'application/json',
-            'Authorization': f'Bearer {self.api_key}'
+            'Accept': 'application/json',
+            'Authorization': f'Bearer {self.api_key}',
+            'User-Agent': 'research-paper-assistant/1.0'
         }
         req = urllib.request.Request(url, data=data, headers=headers)
         try:
@@ -178,6 +182,13 @@ class GroqClient(LLMClient):
                 raise RuntimeError("Invalid response structure from Groq API.")
         except urllib.error.HTTPError as e:
             error_body = e.read().decode('utf-8')
+            if "error code: 1010" in error_body.lower() or "cloudflare" in error_body.lower():
+                raise ConnectionError(
+                    "Groq rejected the hosting network before the request reached its API "
+                    "(edge-security error 1010). Reboot the Streamlit app and retry. If it "
+                    "continues, test with a newly rotated Groq key or contact Groq support "
+                    "with the Streamlit app URL and the response Ray ID."
+                )
             raise RuntimeError(f"Groq API error ({e.code}): {error_body}")
         except urllib.error.URLError as e:
             raise ConnectionError(f"Failed to connect to Groq API: {e}")
@@ -189,7 +200,7 @@ class GeminiClient(LLMClient):
     """
     Client for Google Gemini REST API.
     """
-    def __init__(self, model_name: str = "gemini-2.5-flash", api_key: Optional[str] = None, temperature: float = 0.0):
+    def __init__(self, model_name: str = "gemini-3.6-flash", api_key: Optional[str] = None, temperature: float = 0.0):
         self.model_name = model_name
         if not api_key:
             try:

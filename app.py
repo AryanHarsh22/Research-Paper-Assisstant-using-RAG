@@ -444,7 +444,7 @@ def main():
 
         elif "Gemini" in llm_provider:
             provider_type = "gemini"
-            model_name = st.text_input("Gemini Model Name", value="gemini-2.5-flash", help="Use a model enabled for generateContent in your Gemini project.")
+            model_name = st.text_input("Gemini Model Name", value="gemini-3.6-flash", help="Use a model enabled for generateContent in your Gemini project.")
             if system_gemini_key:
                 st.caption("✅ Gemini API key configured securely")
                 custom_key = st.text_input(
