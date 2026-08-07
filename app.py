@@ -361,13 +361,15 @@ def main():
         # Default to OpenAI if host configured a system key (online mode), else Ollama (local mode)
         default_index = 1 if system_openai_key else 0
 
-        llm_provider = st.radio(
+        llm_provider = st.selectbox(
             "LLM Provider",
-            options=["Ollama (Local LLM/SLM)", "OpenAI (Cloud LLM)"],
-            index=default_index,
-            horizontal=True,
-            help="Choose Ollama for local models (Llama 3, Mistral, etc.) or OpenAI for cloud inference."
+            options=["Ollama (Local LLM)", "OpenAI (Cloud API)", "Groq (Fast Cloud API)", "Google Gemini (Cloud API)"],
+            index=0 if not system_openai_key else 1,
+            help="Choose Ollama for local execution, or select a Cloud API provider for online hosting."
         )
+
+        provider_api_key = None
+        ollama_url = "http://localhost:11434"
 
         if "Ollama" in llm_provider:
             provider_type = "ollama"
@@ -386,9 +388,8 @@ def main():
             else:
                 st.caption("⚠️ Could not detect installed models automatically. Enter model name manually:")
                 model_name = st.text_input("Ollama Model Name", value="mistral:latest", help="e.g., mistral:latest, llama3, gemma:2b")
-            
-            openai_key = None
-        else:
+
+        elif "OpenAI" in llm_provider:
             provider_type = "openai"
             model_name = st.text_input("OpenAI Model Name", value="gpt-4o-mini", help="e.g., gpt-4o-mini, gpt-4o")
             
@@ -400,15 +401,34 @@ def main():
                     type="password",
                     help="Leave blank to use the app's default system key, or enter your own key to override."
                 )
-                openai_key = custom_key.strip() if custom_key.strip() else system_openai_key
+                provider_api_key = custom_key.strip() if custom_key.strip() else system_openai_key
             else:
-                openai_key = st.text_input(
+                provider_api_key = st.text_input(
                     "OpenAI API Key",
                     value="",
                     type="password",
-                    help="Enter your OpenAI API key (sk-...). Leave blank if using Ollama locally."
+                    help="Enter your OpenAI API key (sk-...)."
                 )
-            ollama_url = "http://localhost:11434"
+
+        elif "Groq" in llm_provider:
+            provider_type = "groq"
+            model_name = st.text_input("Groq Model Name", value="llama-3.3-70b-versatile", help="e.g. llama-3.3-70b-versatile, llama3-8b-8192, mixtral-8x7b-32768")
+            provider_api_key = st.text_input(
+                "Groq API Key",
+                value=os.environ.get("GROQ_API_KEY", ""),
+                type="password",
+                help="Enter your Groq API key (gsk_...)"
+            )
+
+        elif "Gemini" in llm_provider:
+            provider_type = "gemini"
+            model_name = st.text_input("Gemini Model Name", value="gemini-1.5-flash", help="e.g. gemini-1.5-flash, gemini-1.5-pro")
+            provider_api_key = st.text_input(
+                "Gemini API Key",
+                value=os.environ.get("GEMINI_API_KEY", os.environ.get("GOOGLE_API_KEY", "")),
+                type="password",
+                help="Enter your Google Gemini API key"
+            )
 
         temperature = st.slider("Temperature", 0.0, 1.0, 0.0, step=0.1)
 
@@ -515,7 +535,7 @@ def main():
                         if provider_type == "ollama":
                             kwargs["base_url"] = ollama_url
                         else:
-                            kwargs["api_key"] = openai_key
+                            kwargs["api_key"] = provider_api_key
 
                         llm_client = get_llm_client(
                             provider=provider_type,

@@ -24,3 +24,7 @@ data/vector_store/*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Agent Summary & Internal Reports
+Agent Summary/
+

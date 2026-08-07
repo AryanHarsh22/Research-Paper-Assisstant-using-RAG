@@ -1,0 +1,22 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+env/
+venv/
+ENV/
+.conda/
+.git/
+.gitignore
+.vscode/
+.claude/
+.idea/
+.DS_Store
+Thumbs.db
+Agent Summary/
+data/uploads/*
+data/vector_store/*
+!data/uploads/.gitkeep
+!data/vector_store/.gitkeep

@@ -135,6 +135,110 @@ class OpenAIClient(LLMClient):
             raise RuntimeError(f"OpenAI generation failed: {e}")
 
 
+class GroqClient(LLMClient):
+    """
+    Client for Groq Cloud API (ultra-fast cloud inference).
+    """
+    def __init__(self, model_name: str = "llama-3.3-70b-versatile", api_key: Optional[str] = None, temperature: float = 0.0):
+        self.model_name = model_name
+        if not api_key:
+            try:
+                import streamlit as st
+                if "GROQ_API_KEY" in st.secrets:
+                    api_key = st.secrets["GROQ_API_KEY"]
+            except Exception:
+                pass
+        self.api_key = api_key or os.environ.get("GROQ_API_KEY")
+        self.temperature = temperature
+
+        if not self.api_key:
+            raise ValueError(
+                "Groq API key not found. Set the GROQ_API_KEY environment variable or pass it directly."
+            )
+
+    def generate(self, prompt: str) -> str:
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        payload = {
+            "model": self.model_name,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": self.temperature
+        }
+        data = json.dumps(payload).encode('utf-8')
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.api_key}'
+        }
+        req = urllib.request.Request(url, data=data, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=60) as response:
+                resp_data = json.loads(response.read().decode('utf-8'))
+                choices = resp_data.get("choices", [])
+                if choices:
+                    return choices[0].get("message", {}).get("content", "").strip()
+                raise RuntimeError("Invalid response structure from Groq API.")
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode('utf-8')
+            raise RuntimeError(f"Groq API error ({e.code}): {error_body}")
+        except urllib.error.URLError as e:
+            raise ConnectionError(f"Failed to connect to Groq API: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Groq generation failed: {e}")
+
+
+class GeminiClient(LLMClient):
+    """
+    Client for Google Gemini REST API.
+    """
+    def __init__(self, model_name: str = "gemini-1.5-flash", api_key: Optional[str] = None, temperature: float = 0.0):
+        self.model_name = model_name
+        if not api_key:
+            try:
+                import streamlit as st
+                if "GEMINI_API_KEY" in st.secrets:
+                    api_key = st.secrets["GEMINI_API_KEY"]
+                elif "GOOGLE_API_KEY" in st.secrets:
+                    api_key = st.secrets["GOOGLE_API_KEY"]
+            except Exception:
+                pass
+        self.api_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        self.temperature = temperature
+
+        if not self.api_key:
+            raise ValueError(
+                "Gemini/Google API key not found. Set GEMINI_API_KEY or GOOGLE_API_KEY environment variable or pass it directly."
+            )
+
+    def generate(self, prompt: str) -> str:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}:generateContent?key={self.api_key}"
+        payload = {
+            "contents": [
+                {"parts": [{"text": prompt}]}
+            ],
+            "generationConfig": {
+                "temperature": self.temperature
+            }
+        }
+        data = json.dumps(payload).encode('utf-8')
+        headers = {'Content-Type': 'application/json'}
+        req = urllib.request.Request(url, data=data, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=60) as response:
+                resp_data = json.loads(response.read().decode('utf-8'))
+                candidates = resp_data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts:
+                        return parts[0].get("text", "").strip()
+                raise RuntimeError("Invalid response structure from Gemini API.")
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode('utf-8')
+            raise RuntimeError(f"Gemini API error ({e.code}): {error_body}")
+        except urllib.error.URLError as e:
+            raise ConnectionError(f"Failed to connect to Gemini API: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Gemini generation failed: {e}")
+
+
 def get_llm_client(provider: str, model_name: str, **kwargs) -> LLMClient:
     """
     Factory function to retrieve the configured LLMClient.
@@ -144,5 +248,9 @@ def get_llm_client(provider: str, model_name: str, **kwargs) -> LLMClient:
         return OllamaClient(model_name=model_name, **kwargs)
     elif provider == "openai":
         return OpenAIClient(model_name=model_name, **kwargs)
+    elif provider == "groq":
+        return GroqClient(model_name=model_name, **kwargs)
+    elif provider in ("gemini", "google"):
+        return GeminiClient(model_name=model_name, **kwargs)
     else:
-        raise ValueError(f"Unsupported LLM provider: {provider}. Choose 'ollama' or 'openai'.")
+        raise ValueError(f"Unsupported LLM provider: {provider}. Choose 'ollama', 'openai', 'groq', or 'gemini'.")
